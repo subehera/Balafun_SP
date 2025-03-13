@@ -397,6 +397,7 @@ void CmsTwoPartCorrAnalysis::analyze(const edm::Event& iEvent, const edm::EventS
    if(fIsMC){ //Only Gen level info---
      LoopTracksMC(iEvent, iSetup, true,  evtclass, fIsMC); //trigger tracks
      LoopTracksMC(iEvent, iSetup, false, evtclass, fIsMC); //associated tracks
+     getSpherocity(iEvent, iSetup, evtclass, fIsMC, spValue);//get spherocity value
    }
    //Either MC reco, reco+corr or data---
    LoopTracks(iEvent, iSetup, true,  evtclass); //trigger tracks
@@ -413,7 +414,63 @@ void CmsTwoPartCorrAnalysis::analyze(const edm::Event& iEvent, const edm::EventS
    evt->reset();
 }
 
+void CmsTwoPartCorrAnalysis::getSpherocity(const edm::Event& iEvent, const edm::EventSetup& iSetup,
+					int evtclass, bool isMC, double& spValue)
+{
 
+edm::Handle< reco::GenParticleCollection > tracksGen;
+iEvent.getByToken(ftrackMC, tracksGen);
+  if( !tracksGen->size() )
+    {
+      edm::LogWarning ("Missing MC Gen Collection") <<"Invalid or empty MC-Gen track collection!";
+      return;
+    }
+
+  float spherocity = -10.0;
+  float pFull = 0;
+  const float fSizeStepESA = 1;
+  float Spherocity = 2;
+  float sumapt = 0;      
+
+
+  for(Int_t i = 0; i < 360/(fSizeStepESA); ++i)
+    {
+      float numerator = 0;
+      float phiparam  = 0;
+      float nx = 0;
+      float ny = 0;
+      phiparam=( (TMath::Pi()) * i * fSizeStepESA ) / 180; // parametrization of the angle
+      nx = TMath::Cos(phiparam);            // x component of an unitary vector n
+      ny = TMath::Sin(phiparam);            // y component of an unitary vector n
+	  
+ for (reco::GenParticleCollection::const_iterator iii = tracksGen->begin();iii != tracksGen->end(); ++iii)
+	{
+
+      if( iii->status() != 1 ) continue;
+      if( iii->charge() == 0 ) continue;
+		
+	if(abs(eta)< 0.8) 
+	    {
+                  pt_pp[iii]= iii->pt();
+		  eta_pp[iii]= iii->eta();
+		  phi_pp[iii]= iii->phi();
+		  if (i==0) sumapt +=  pt_pp[iii];
+		  Float_t pxA = pt_pp[iii] * TMath::Cos( phi_pp[iii] );
+		  Float_t pyA = pt_pp[iii] * TMath::Sin( phi_pp[iii] );
+		  numerator += TMath::Abs( ny * pxA - nx * pyA );//product between p  projection in XY plane and the unitary vector
+		    
+	}// eta selection
+	}// track loop
+   pFull = TMath::Power((numerador / sumapt),2 );
+   if(pFull < Spherocity)//maximization of pFull
+	{
+	  Spherocity = pFull;
+	}	
+	    
+    }// unit vector loop 
+ spherocity=((Spherocity)*TMath::Pi()*TMath::Pi())/4.0;
+ spValue = spherocity;
+}
 // ------------ method called once each job just before starting event loop  ------------
 void CmsTwoPartCorrAnalysis::beginJob()
 {
